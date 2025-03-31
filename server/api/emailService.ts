@@ -44,14 +44,25 @@ class EmailService {
       return;
     }
     
-    const subject = `FloodGuard Alert: ${riskAssessment.riskLevel} Flood Risk Detected`;
+    // Ensure consistent risk level throughout email
+    // Use toUpperCase to standardize the format
+    const riskLevel = typeof riskAssessment.riskLevel === 'string' 
+      ? riskAssessment.riskLevel.toUpperCase() 
+      : 'UNKNOWN';
     
-    // Get the color based on risk level
+    // Update riskAssessment with standardized risk level
+    riskAssessment.riskLevel = riskLevel;
+    
+    const subject = `FloodGuard Alert: ${riskLevel} Flood Risk Detected`;
+    
+    // Get the color based on standardized risk level
     let riskColor = '#4CAF50'; // Default green for LOW
-    if (riskAssessment.riskLevel === 'HIGH') {
+    if (riskLevel === 'HIGH') {
       riskColor = '#FF5252'; // Red
-    } else if (riskAssessment.riskLevel === 'MEDIUM') {
+    } else if (riskLevel === 'MEDIUM') {
       riskColor = '#FFB74D'; // Orange
+    } else if (riskLevel === 'LOW') {
+      riskColor = '#4CAF50'; // Green
     }
     
     let html = `
@@ -71,11 +82,11 @@ class EmailService {
           <h3 style="margin-top: 0;">Safety Recommendations:</h3>
           <p>Please take necessary precautions based on the risk level:</p>
           <ul>
-            ${riskAssessment.riskLevel === 'HIGH' ? `
+            ${riskLevel === 'HIGH' ? `
               <li><strong>HIGH RISK:</strong> Immediate action required. Consider evacuation if advised.</li>
               <li>Avoid all flood-prone areas and do not attempt to cross flooded roads.</li>
               <li>Stay tuned to emergency broadcasts and follow all official instructions.</li>
-            ` : riskAssessment.riskLevel === 'MEDIUM' ? `
+            ` : riskLevel === 'MEDIUM' ? `
               <li><strong>MEDIUM RISK:</strong> Be prepared for possible flooding in your area.</li>
               <li>Avoid flood-prone areas and be ready to move to higher ground if needed.</li>
               <li>Keep emergency supplies and important documents accessible.</li>
