@@ -182,9 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user?.id;
       if (!userId) return res.sendStatus(401);
       
-      const { riskLevel, userLocation } = req.body;
-      if (!riskLevel || !userLocation) {
-        return res.status(400).send("Missing risk level or location");
+      const { userLocation } = req.body;
+      if (!userLocation) {
+        return res.status(400).send("Missing location");
       }
       
       // Get user info to access email
@@ -200,12 +200,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       console.log(`Actual risk assessment for location: ${JSON.stringify(actualRiskAssessment)}`);
-      console.log(`Client-provided risk level: ${riskLevel}, Actual risk level: ${actualRiskAssessment.riskLevel}`);
       
-      // Create risk assessment for email - use the actual risk assessment from the flood service
-      // instead of trusting the client-provided risk level
+      // Create risk assessment for email using the actual assessment from the flood service
       const riskAssessment = {
-        // Using the actual risk level from the flood service
         riskLevel: actualRiskAssessment.riskLevel,
         location: userLocation,
         riverName: actualRiskAssessment.riverName || "Unknown",
@@ -215,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send manual email alert with the actual risk level from assessment
       await emailService.sendFloodAlert(user.email, riskAssessment);
-      console.log(`Manual flood risk email sent to ${user.email} with actual risk level: ${actualRiskAssessment.riskLevel} (client requested: ${riskLevel})`);
+      console.log(`Manual flood risk email sent to ${user.email} with actual risk level: ${actualRiskAssessment.riskLevel}`);
       
       // Create alert record with the actual risk level
       const alert = await storage.createAlert({

@@ -80,10 +80,10 @@ export default function DashboardPage() {
   // Send alert email mutation
   const sendAlertMutation = useMutation({
     mutationFn: async () => {
+      // We're now only sending the location - the server will calculate the actual risk level
       const res = await apiRequest('POST', '/api/alerts/send-email', {
         userId: user?.id,
-        riskLevel: floodRisk?.riskLevel || 'LOW',
-        userLocation
+        userLocation  // Server will calculate risk level based on this location
       });
       return await res.json();
     },
