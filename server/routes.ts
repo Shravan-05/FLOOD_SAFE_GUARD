@@ -193,36 +193,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send("User email not found");
       }
       
-      // Get nearest river info
-      const riverLevels = await storage.getRiverLevelsByArea(
+      // Get actual flood risk assessment from flood service
+      const actualRiskAssessment = await floodService.assessFloodRisk(
         userLocation.latitude,
-        userLocation.longitude,
-        10
+        userLocation.longitude
       );
       
-      const closestRiver = riverLevels.length > 0 ? riverLevels[0] : null;
+      console.log(`Actual risk assessment for location: ${JSON.stringify(actualRiskAssessment)}`);
+      console.log(`Client-provided risk level: ${riskLevel}, Actual risk level: ${actualRiskAssessment.riskLevel}`);
       
-      // Create risk assessment for email
+      // Create risk assessment for email - use the actual risk assessment from the flood service
+      // instead of trusting the client-provided risk level
       const riskAssessment = {
-        riskLevel,
+        // Using the actual risk level from the flood service
+        riskLevel: actualRiskAssessment.riskLevel,
         location: userLocation,
-        riverName: closestRiver ? floodService.getRiverNameByLocation(
-          closestRiver.latitude, 
-          closestRiver.longitude
-        ) : "Unknown",
-        waterLevel: closestRiver ? closestRiver.level : 0,
-        criticalThreshold: closestRiver ? closestRiver.criticalThreshold : 0
+        riverName: actualRiskAssessment.riverName || "Unknown",
+        waterLevel: actualRiskAssessment.waterLevel || 0,
+        thresholdLevel: actualRiskAssessment.thresholdLevel || 0
       };
       
-      // Send manual email alert
+      // Send manual email alert with the actual risk level from assessment
       await emailService.sendFloodAlert(user.email, riskAssessment);
-      console.log(`Manual flood risk email sent to ${user.email} with risk level: ${riskLevel}`);
+      console.log(`Manual flood risk email sent to ${user.email} with actual risk level: ${actualRiskAssessment.riskLevel} (client requested: ${riskLevel})`);
       
-      // Create alert record
+      // Create alert record with the actual risk level
       const alert = await storage.createAlert({
         userId,
-        riskLevel,
-        message: `Manual flood risk alert: ${riskLevel} risk level detected at your location.`
+        riskLevel: actualRiskAssessment.riskLevel, // Use the actual risk level from assessment
+        message: `Manual flood risk alert: ${actualRiskAssessment.riskLevel} risk level detected at your location.`
       });
       
       res.status(201).json(alert);
