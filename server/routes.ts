@@ -161,6 +161,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Send email alert
+  app.post("/api/alerts/send-email", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) return res.sendStatus(401);
+      
+      const userId = req.user?.id;
+      if (!userId) return res.sendStatus(401);
+      
+      const { riskLevel, userLocation } = req.body;
+      if (!riskLevel || !userLocation) {
+        return res.status(400).send("Missing risk level or location");
+      }
+      
+      // Get user info to access email
+      const user = await storage.getUser(userId);
+      if (!user || !user.email) {
+        return res.status(404).send("User email not found");
+      }
+      
+      // Get nearest river info
+      const riverLevels = await storage.getRiverLevelsByArea(
+        userLocation.latitude,
+        userLocation.longitude,
+        10
+      );
+      
+      const closestRiver = riverLevels.length > 0 ? riverLevels[0] : null;
+      
+      // Create risk assessment for email
+      const riskAssessment = {
+        riskLevel,
+        location: userLocation,
+        riverName: closestRiver ? floodService.getRiverNameByLocation(
+          closestRiver.latitude, 
+          closestRiver.longitude
+        ) : "Unknown",
+        waterLevel: closestRiver ? closestRiver.level : 0,
+        criticalThreshold: closestRiver ? closestRiver.criticalThreshold : 0
+      };
+      
+      // Send email alert
+      await emailService.sendFloodAlert(user.email, riskAssessment);
+      
+      // Create alert record
+      const alert = await storage.createAlert({
+        userId,
+        riskLevel,
+        message: `Flood risk alert: ${riskLevel} risk level detected at your location.`
+      });
+      
+      res.status(201).json(alert);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
   app.post("/api/alerts/:id/read", async (req, res, next) => {
     try {
       if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -209,6 +265,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const riverLevels = await storage.getRiverLevelsByArea(lat, lng, rad);
       res.json(riverLevels);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Safe routes between two points
+  app.get("/api/safe-routes", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) return res.sendStatus(401);
+      
+      const { startLat, startLong, endLat, endLong } = req.query;
+      
+      if (!startLat || !startLong || !endLat || !endLong) {
+        return res.status(400).send("Missing required coordinates");
+      }
+      
+      const startLatitude = parseFloat(startLat as string);
+      const startLongitude = parseFloat(startLong as string);
+      const endLatitude = parseFloat(endLat as string);
+      const endLongitude = parseFloat(endLong as string);
+      
+      if (isNaN(startLatitude) || isNaN(startLongitude) || isNaN(endLatitude) || isNaN(endLongitude)) {
+        return res.status(400).send("Invalid coordinates");
+      }
+      
+      const safeRoutes = await floodService.getSafeRoutes(
+        startLatitude,
+        startLongitude,
+        endLatitude,
+        endLongitude
+      );
+      
+      res.json(safeRoutes);
     } catch (error) {
       next(error);
     }

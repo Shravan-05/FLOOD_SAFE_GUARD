@@ -1,20 +1,39 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import Header from '@/components/ui/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import RiskStatusBanner from '@/components/ui/risk-status-banner';
-import MapComponent from '@/components/ui/map-component';
-import RoadStatus from '@/components/ui/road-status';
+import LeafletMap from '@/components/ui/leaflet-map';
 import { Button } from '@/components/ui/button';
-import { getUserLocation } from '@/lib/floodUtils';
-import { Loader2 } from 'lucide-react';
+import { getUserLocation, RISK_LEVELS } from '@/lib/floodUtils';
+import { Loader2, MapPin, Navigation, AlertTriangle, Shield } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { Road } from '@shared/schema';
+
+// Define FloodRisk type
+type FloodRisk = {
+  id?: number;
+  riskLevel: string;
+  waterLevel: number;
+  thresholdLevel: number;
+  timestamp?: string;
+  userId?: number;
+  latitude?: number;
+  longitude?: number;
+};
 
 export default function DashboardPage() {
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [destination, setDestination] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [alertSent, setAlertSent] = useState<boolean>(false);
 
   // Fetch user location
   useEffect(() => {
@@ -39,46 +58,84 @@ export default function DashboardPage() {
   }, []);
 
   // Fetch current flood risk
-  const { data: floodRisk, isLoading: isFloodRiskLoading } = useQuery({
+  const { data: floodRisk, isLoading: isFloodRiskLoading } = useQuery<FloodRisk>({
     queryKey: ['/api/flood-risks/current'],
     enabled: !!userLocation,
   });
 
   // Fetch roads near user
-  const { data: roads, isLoading: isRoadsLoading } = useQuery({
+  const { data: roads, isLoading: isRoadsLoading } = useQuery<Road[]>({
     queryKey: ['/api/roads', userLocation?.latitude, userLocation?.longitude],
     queryFn: async () => {
       if (!userLocation) return [];
       const res = await apiRequest(
         'GET', 
-        `/api/roads?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}&radius=5`
+        `/api/roads?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}&radius=10`
       );
       return await res.json();
     },
     enabled: !!userLocation,
   });
 
-  // Fetch river levels near user
-  const { data: riverLevels, isLoading: isRiverLevelsLoading } = useQuery({
-    queryKey: ['/api/river-levels', userLocation?.latitude, userLocation?.longitude],
-    queryFn: async () => {
-      if (!userLocation) return [];
-      const res = await apiRequest(
-        'GET', 
-        `/api/river-levels?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}&radius=10`
-      );
+  // Send alert email mutation
+  const sendAlertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/alerts/send-email', {
+        userId: user?.id,
+        riskLevel: floodRisk?.riskLevel || 'LOW',
+        userLocation
+      });
       return await res.json();
     },
-    enabled: !!userLocation,
+    onSuccess: () => {
+      toast({
+        title: "Alert Email Sent",
+        description: "A flood risk alert has been sent to your email.",
+        variant: "default"
+      });
+      setAlertSent(true);
+    },
+    onError: () => {
+      toast({
+        title: "Failed to Send Alert",
+        description: "Could not send email alert. Please check your settings.",
+        variant: "destructive"
+      });
+    }
   });
 
-  // Determine the closest river level
-  const closestRiver = riverLevels?.length > 0 ? riverLevels[0] : null;
+  // Send alert email when risk level is detected (only once)
+  useEffect(() => {
+    if (floodRisk && user?.email && !alertSent && (floodRisk.riskLevel === 'HIGH' || floodRisk.riskLevel === 'MEDIUM')) {
+      sendAlertMutation.mutate();
+    }
+  }, [floodRisk, user?.email, alertSent, sendAlertMutation]);
+
+  // Handle destination selection
+  const handleDestinationSelect = (coords: { latitude: number; longitude: number }) => {
+    setDestination(coords);
+    
+    toast({
+      title: "Destination Selected",
+      description: "Safe routes to your destination have been calculated.",
+      variant: "default"
+    });
+  };
 
   // Count safe routes
   const safeRoutes = roads?.filter(road => road.status === 'SAFE') || [];
 
-  const isLoading = isLocationLoading || isFloodRiskLoading || isRoadsLoading || isRiverLevelsLoading;
+  const isLoading = isLocationLoading || isFloodRiskLoading || isRoadsLoading;
+
+  // Default risk level if none available
+  const defaultRiskLevel: FloodRisk = {
+    riskLevel: RISK_LEVELS.LOW,
+    waterLevel: 0,
+    thresholdLevel: 0
+  };
+
+  // Use actual risk data or default
+  const riskData = floodRisk || defaultRiskLevel;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -87,7 +144,7 @@ export default function DashboardPage() {
       <main className="flex-1">
         <div className="py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Flood Risk Dashboard</h1>
           </div>
           
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
@@ -105,42 +162,54 @@ export default function DashboardPage() {
               <>
                 {/* Current Risk Status Banner */}
                 <RiskStatusBanner 
-                  riskLevel={floodRisk?.riskLevel || 'LOW'} 
-                  waterLevel={floodRisk?.waterLevel || 0} 
-                  thresholdLevel={floodRisk?.thresholdLevel || 0} 
+                  riskLevel={riskData.riskLevel} 
+                  waterLevel={riskData.waterLevel} 
+                  thresholdLevel={riskData.thresholdLevel} 
                 />
 
                 {/* Risk Overview Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
                   {/* Risk Level Card */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Current Risk Level</CardTitle>
+                      <CardTitle className="flex items-center text-sm font-medium text-gray-500">
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Current Risk Level
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className={`text-3xl font-semibold ${
-                        floodRisk?.riskLevel === 'HIGH' ? 'text-red-500' :
-                        floodRisk?.riskLevel === 'MEDIUM' ? 'text-amber-500' : 'text-green-500'
+                        riskData.riskLevel === 'HIGH' ? 'text-red-500' :
+                        riskData.riskLevel === 'MEDIUM' ? 'text-amber-500' : 'text-green-500'
                       }`}>
-                        {floodRisk?.riskLevel || 'LOW'}
+                        {riskData.riskLevel}
                       </div>
-                      <div className="mt-4 text-sm">
-                        <Button variant="link" className="px-0">View details</Button>
+                      <div className="mt-2 text-xs text-gray-500">
+                        {riskData.riskLevel === 'HIGH' ? 
+                          'Extreme caution required. Avoid travel if possible.' :
+                          riskData.riskLevel === 'MEDIUM' ? 
+                          'Be prepared for possible flooding in your area.' :
+                          'No significant flooding risk at this time.'}
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Nearest River Card */}
+                  {/* Destination Status Card */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Nearest River</CardTitle>
+                      <CardTitle className="flex items-center text-sm font-medium text-gray-500">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Destination Status
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-semibold text-gray-900">
-                        {closestRiver ? 'Musi River' : 'N/A'}
+                      <div className="text-xl font-semibold text-gray-900">
+                        {destination ? 'Selected' : 'Not Selected'}
                       </div>
-                      <div className="mt-4 text-sm">
-                        <Button variant="link" className="px-0">View on map</Button>
+                      <div className="mt-2 text-xs text-gray-500">
+                        {destination ? 
+                          `Destination at ${destination.latitude.toFixed(4)}, ${destination.longitude.toFixed(4)}` : 
+                          'Click on the map to select your destination'}
                       </div>
                     </CardContent>
                   </Card>
@@ -148,101 +217,109 @@ export default function DashboardPage() {
                   {/* Safe Routes Card */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Safe Routes Available</CardTitle>
+                      <CardTitle className="flex items-center text-sm font-medium text-gray-500">
+                        <Shield className="h-4 w-4 mr-2" />
+                        Safe Routes Available
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-3xl font-semibold text-gray-900">
                         {safeRoutes.length}
                       </div>
-                      <div className="mt-4 text-sm">
-                        <Button variant="link" className="px-0">Get directions</Button>
+                      <div className="mt-2 text-xs text-gray-500">
+                        {safeRoutes.length > 0 ? 
+                          'Safe routes available to your destination.' : 
+                          'No safe routes found. Extreme caution advised.'}
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Map and Road Status */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Map Container */}
-                  <div className="lg:col-span-2 bg-white rounded-lg shadow overflow-hidden">
-                    <div className="p-4 border-b border-gray-200">
-                      <h3 className="text-lg font-medium text-gray-900">Current Location & Risk Map</h3>
-                    </div>
-                    
-                    {/* Map Component */}
-                    <MapComponent 
-                      userLocation={userLocation}
-                      roads={roads || []}
-                      riverLevels={riverLevels || []}
-                    />
+                {/* Interactive Map with Destination Selection */}
+                <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                  <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-lg font-medium text-gray-900">Interactive Flood Risk Map</h3>
+                    <Badge 
+                      variant={alertSent ? "outline" : "default"}
+                      className={alertSent ? "bg-gray-100 text-gray-800" : ""}
+                    >
+                      {alertSent ? "Alert Email Sent" : "No Alert Sent"}
+                    </Badge>
                   </div>
-
-                  {/* Road Status and Safe Routes */}
-                  <div className="bg-white rounded-lg shadow">
-                    <div className="p-4 border-b border-gray-200">
-                      <h3 className="text-lg font-medium text-gray-900">Road Status & Safe Routes</h3>
+                  
+                  {/* Leaflet Map Component */}
+                  <LeafletMap 
+                    userLocation={userLocation}
+                    roads={roads || []}
+                    riskLevel={riskData.riskLevel}
+                    onDestinationSelect={handleDestinationSelect}
+                  />
+                  
+                  <div className="p-4 bg-gray-50 border-t border-gray-200">
+                    <div className="flex items-center text-sm">
+                      <Navigation className="h-4 w-4 mr-2 text-primary" />
+                      <span>
+                        Click anywhere on the map to select your destination and view safe routes.
+                      </span>
                     </div>
-                    
-                    {/* Road Status Component */}
-                    <RoadStatus roads={roads || []} />
                   </div>
                 </div>
                 
-                {/* Historical Data & Predictions */}
-                <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Flood Risk Assessment</h3>
-                  </div>
-                  <div className="p-4">
+                {/* Emergency Information */}
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-medium text-gray-900">Emergency Information</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500">River Level Metrics</h4>
-                        <div className="mt-1 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                          <div className="col-span-1">
-                            <dt className="text-xs font-medium text-gray-500">Current Level</dt>
-                            <dd className="mt-1 text-sm font-semibold text-gray-900">
-                              {closestRiver ? `${closestRiver.level} meters` : 'N/A'}
-                            </dd>
-                          </div>
-                          <div className="col-span-1">
-                            <dt className="text-xs font-medium text-gray-500">Critical Threshold</dt>
-                            <dd className="mt-1 text-sm font-semibold text-gray-900">
-                              {closestRiver?.criticalThreshold ? `${closestRiver.criticalThreshold} meters` : 'N/A'}
-                            </dd>
-                          </div>
-                          <div className="col-span-1">
-                            <dt className="text-xs font-medium text-gray-500">24hr Change</dt>
-                            <dd className="mt-1 text-sm font-semibold text-red-500">
-                              {closestRiver ? '+5 meters' : 'N/A'}
-                            </dd>
-                          </div>
-                          <div className="col-span-1">
-                            <dt className="text-xs font-medium text-gray-500">Forecast (24hr)</dt>
-                            <dd className="mt-1 text-sm font-semibold text-red-500">
-                              {floodRisk?.riskLevel === 'HIGH' ? 'Rising' : 'Stable'}
-                            </dd>
-                          </div>
+                      <div className="flex items-start space-x-3">
+                        <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-medium">Emergency Services</h4>
+                          <p className="text-sm text-gray-500">Call 911 or your local emergency number for immediate assistance</p>
                         </div>
                       </div>
                       
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500">Risk Assessment Model</h4>
-                        <div className="mt-1 bg-gray-50 rounded-md p-3">
-                          <div className="text-sm text-gray-600">
-                            <p>The current flood risk assessment is based on the following factors:</p>
-                            <ul className="mt-2 pl-5 list-disc space-y-1">
-                              <li>Rainfall: <span className="font-medium">208mm (Heavy)</span></li>
-                              <li>River Proximity: <span className="font-medium">{closestRiver ? '0.3 km' : 'N/A'}</span></li>
-                              <li>Terrain Slope: <span className="font-medium">2.5° (Moderate)</span></li>
-                              <li>Historical Flood Patterns: <span className="font-medium">High correlation</span></li>
-                            </ul>
-                            <p className="mt-2">Model Confidence: <span className="font-medium">73%</span> (based on ML prediction)</p>
-                          </div>
+                      <div className="flex items-start space-x-3">
+                        <Shield className="h-5 w-5 text-primary mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-medium">Evacuation Routes</h4>
+                          <p className="text-sm text-gray-500">Follow designated evacuation routes marked on the map in green</p>
                         </div>
                       </div>
+                      
+                      {riskData.riskLevel === 'HIGH' && (
+                        <Alert variant="destructive" className="mt-4">
+                          <AlertTitle className="font-medium">High Risk Warning</AlertTitle>
+                          <AlertDescription>
+                            Your area is experiencing a high flood risk. Consider seeking higher ground and follow emergency instructions.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {riskData.riskLevel === 'MEDIUM' && (
+                        <Alert 
+                          className="mt-4 bg-amber-50 border-amber-200 text-amber-800"
+                          variant="destructive"
+                        >
+                          <AlertTitle className="font-medium">Medium Risk Advisory</AlertTitle>
+                          <AlertDescription>
+                            Be prepared for possible flooding. Monitor updates and have an evacuation plan ready.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <Button 
+                        className="w-full mt-2"
+                        variant={alertSent ? "outline" : "default"}
+                        disabled={alertSent || sendAlertMutation.isPending}
+                        onClick={() => sendAlertMutation.mutate()}
+                      >
+                        {sendAlertMutation.isPending ? "Sending..." : alertSent ? "Alert Already Sent" : "Send Alert Email Again"}
+                      </Button>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </>
             )}
           </div>

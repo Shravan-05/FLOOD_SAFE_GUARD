@@ -16,13 +16,14 @@ class EmailService {
   private setupTransporter() {
     try {
       this.transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE || 'gmail',
+        service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
         }
       });
       this.isConfigured = true;
+      console.log('Email service configured successfully');
     } catch (error) {
       console.error('Failed to setup email transporter:', error);
       this.isConfigured = false;

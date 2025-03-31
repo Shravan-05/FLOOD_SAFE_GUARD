@@ -151,14 +151,114 @@ class FloodService {
     
     const allRoads = await storage.getRoadsByArea(centerLat, centerLong, radius);
     
-    // Filter for safe roads
-    const safeRoads = allRoads.filter(road => road.status !== ROAD_STATUS.UNDER_FLOOD);
+    // If no roads found, generate a direct route
+    if (allRoads.length === 0) {
+      // Simple direct path
+      return [{
+        id: 1000, // Using numerical ID
+        name: 'Direct Route',
+        status: ROAD_STATUS.SAFE,
+        path: [
+          [startLat, startLong],
+          [endLat, endLong]
+        ]
+      }];
+    }
     
-    return {
-      safeRoads,
-      safeCount: safeRoads.length,
-      totalRoads: allRoads.length
-    };
+    // Categorize roads by status
+    const safeRoads = allRoads.filter(road => road.status === ROAD_STATUS.SAFE);
+    const cautionRoads = allRoads.filter(road => road.status === ROAD_STATUS.NEAR_FLOOD);
+    const floodedRoads = allRoads.filter(road => road.status === ROAD_STATUS.UNDER_FLOOD);
+    
+    // Format routes for the map
+    const routes = [
+      // Safe routes (preferred)
+      ...safeRoads.map(road => ({
+        id: road.id,
+        name: road.name,
+        status: road.status,
+        path: [
+          [road.startLat, road.startLong],
+          [road.endLat, road.endLong]
+        ]
+      })),
+      
+      // Caution routes (only if needed)
+      ...cautionRoads.map(road => ({
+        id: road.id,
+        name: road.name,
+        status: road.status,
+        path: [
+          [road.startLat, road.startLong],
+          [road.endLat, road.endLong]
+        ]
+      })),
+      
+      // Flooded routes (for information only)
+      ...floodedRoads.map(road => ({
+        id: road.id,
+        name: road.name,
+        status: road.status,
+        path: [
+          [road.startLat, road.startLong],
+          [road.endLat, road.endLong]
+        ]
+      }))
+    ];
+    
+    // If we have at least one route, add a direct connection 
+    // between start point and the nearest road, and end point and nearest road
+    if (routes.length > 0) {
+      // Find closest road to start and end points
+      let closestStartRoad = allRoads[0];
+      let closestEndRoad = allRoads[0];
+      let minStartDist = Infinity;
+      let minEndDist = Infinity;
+      
+      for (const road of safeRoads.length > 0 ? safeRoads : allRoads) {
+        // Distance to road start
+        const distToRoadStart = haversine(startLat, startLong, road.startLat, road.startLong);
+        if (distToRoadStart < minStartDist) {
+          minStartDist = distToRoadStart;
+          closestStartRoad = road;
+        }
+        
+        // Distance to road end
+        const distToRoadEnd = haversine(endLat, endLong, road.endLat, road.endLong);
+        if (distToRoadEnd < minEndDist) {
+          minEndDist = distToRoadEnd;
+          closestEndRoad = road;
+        }
+      }
+      
+      // Add connecting routes
+      if (minStartDist < 10) {
+        routes.unshift({
+          id: 1001, // Using numerical ID
+          name: 'Start Connector',
+          status: ROAD_STATUS.SAFE,
+          path: [
+            [startLat, startLong],
+            [closestStartRoad.startLat, closestStartRoad.startLong]
+          ] as [number, number][]
+        });
+      }
+      
+      if (minEndDist < 10) {
+        routes.push({
+          id: 1002, // Using numerical ID
+          name: 'End Connector',
+          status: ROAD_STATUS.SAFE,
+          path: [
+            [closestEndRoad.endLat, closestEndRoad.endLong],
+            [endLat, endLong]
+          ] as [number, number][]
+        });
+      }
+    }
+    
+    // Return formatted routes for map rendering
+    return routes;
   }
   
   // Helper methods
