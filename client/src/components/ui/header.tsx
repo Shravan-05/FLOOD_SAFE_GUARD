@@ -46,16 +46,16 @@ export default function Header() {
             <nav className="hidden md:ml-6 md:flex md:space-x-4">
               {navItems.map((item) => (
                 <Link key={item.path} href={item.path}>
-                  <a
+                  <span
                     className={`${
                       location === item.path
                         ? "bg-primary-dark text-white"
                         : "text-white hover:bg-primary-light hover:text-white"
-                    } px-3 py-2 rounded-md text-sm font-medium`}
+                    } px-3 py-2 rounded-md text-sm font-medium cursor-pointer inline-block`}
                     aria-current={location === item.path ? "page" : undefined}
                   >
                     {item.name}
-                  </a>
+                  </span>
                 </Link>
               ))}
             </nav>
@@ -128,17 +128,17 @@ export default function Header() {
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
           {navItems.map((item) => (
             <Link key={item.path} href={item.path}>
-              <a
+              <span
                 className={`${
                   location === item.path
                     ? "bg-primary-dark text-white"
                     : "text-white hover:bg-primary-light hover:text-white"
-                } block px-3 py-2 rounded-md text-base font-medium`}
+                } block px-3 py-2 rounded-md text-base font-medium cursor-pointer`}
                 aria-current={location === item.path ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {item.name}
-              </a>
+              </span>
             </Link>
           ))}
         </div>

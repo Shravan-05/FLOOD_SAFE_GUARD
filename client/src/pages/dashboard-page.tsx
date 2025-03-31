@@ -265,46 +265,63 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 
-                {/* Emergency Information */}
+                {/* Safe Route Suggestions */}
                 <Card className="mb-6">
                   <CardHeader>
-                    <CardTitle className="text-lg font-medium text-gray-900">Emergency Information</CardTitle>
+                    <CardTitle className="text-lg font-medium text-gray-900">Safe Route Suggestions</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
-                        <div>
-                          <h4 className="text-sm font-medium">Emergency Services</h4>
-                          <p className="text-sm text-gray-500">Call 911 or your local emergency number for immediate assistance</p>
+                      {safeRoutes.length > 0 ? (
+                        <>
+                          {safeRoutes.slice(0, 3).map((route, index) => (
+                            <div key={route.id} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                                route.status === 'OPEN' ? 'bg-green-100 text-green-600' : 
+                                route.status === 'CAUTION' ? 'bg-amber-100 text-amber-600' : 
+                                'bg-red-100 text-red-600'
+                              }`}>
+                                <Navigation className="h-5 w-5" />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium flex items-center justify-between">
+                                  <span>{route.name}</span>
+                                  <Badge 
+                                    className={`ml-2 ${
+                                      route.status === 'OPEN' ? 'bg-green-100 text-green-600 hover:bg-green-100' : 
+                                      route.status === 'CAUTION' ? 'bg-amber-100 text-amber-600 hover:bg-amber-100' : 
+                                      'bg-red-100 text-red-600 hover:bg-red-100'
+                                    }`}
+                                  >
+                                    {route.status}
+                                  </Badge>
+                                </h4>
+                                <p className="text-sm text-gray-600">{`Route ${index + 1} from your location to destination`}</p>
+                                <div className="mt-1 text-xs text-gray-500 flex items-center">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  <span>Distance: {(route.distance || 0).toFixed(1)} km</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className="p-4 text-center bg-gray-50 rounded-lg">
+                          <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                          <h4 className="text-sm font-medium">No Safe Routes Available</h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {destination 
+                              ? "No safe routes were found to your destination due to high flood risk." 
+                              : "Select a destination on the map to see available safe routes."}
+                          </p>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <Shield className="h-5 w-5 text-primary mt-0.5" />
-                        <div>
-                          <h4 className="text-sm font-medium">Evacuation Routes</h4>
-                          <p className="text-sm text-gray-500">Follow designated evacuation routes marked on the map in green</p>
-                        </div>
-                      </div>
+                      )}
                       
                       {riskData.riskLevel === 'HIGH' && (
                         <Alert variant="destructive" className="mt-4">
                           <AlertTitle className="font-medium">High Risk Warning</AlertTitle>
                           <AlertDescription>
-                            Your area is experiencing a high flood risk. Consider seeking higher ground and follow emergency instructions.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {riskData.riskLevel === 'MEDIUM' && (
-                        <Alert 
-                          className="mt-4 bg-amber-50 border-amber-200 text-amber-800"
-                          variant="destructive"
-                        >
-                          <AlertTitle className="font-medium">Medium Risk Advisory</AlertTitle>
-                          <AlertDescription>
-                            Be prepared for possible flooding. Monitor updates and have an evacuation plan ready.
+                            Your area is experiencing a high flood risk. Travel is not advised. Consider seeking higher ground.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -315,7 +332,7 @@ export default function DashboardPage() {
                         disabled={alertSent || sendAlertMutation.isPending}
                         onClick={() => sendAlertMutation.mutate()}
                       >
-                        {sendAlertMutation.isPending ? "Sending..." : alertSent ? "Alert Already Sent" : "Send Alert Email Again"}
+                        {sendAlertMutation.isPending ? "Sending..." : alertSent ? "Alert Already Sent" : "Send Email Alert"}
                       </Button>
                     </div>
                   </CardContent>

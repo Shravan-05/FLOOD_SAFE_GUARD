@@ -42,18 +42,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thresholdLevel: riskAssessment.thresholdLevel
       });
       
-      // Create alert if risk is medium or high
-      if (riskAssessment.riskLevel === 'HIGH' || riskAssessment.riskLevel === 'MEDIUM') {
-        const alert = await storage.createAlert({
-          userId,
-          riskLevel: riskAssessment.riskLevel,
-          message: `Flood risk in your area is ${riskAssessment.riskLevel}. Current water level: ${riskAssessment.waterLevel}m (threshold: ${riskAssessment.thresholdLevel}m)`
-        });
-        
-        // Send email alert if user has opted in
-        if (req.user?.receiveAlerts) {
-          emailService.sendFloodAlert(req.user.email, riskAssessment);
-        }
+      // Create alert for all risk levels (including LOW)
+      const alert = await storage.createAlert({
+        userId,
+        riskLevel: riskAssessment.riskLevel,
+        message: `Flood risk in your area is ${riskAssessment.riskLevel}. Current water level: ${riskAssessment.waterLevel}m (threshold: ${riskAssessment.thresholdLevel}m)`
+      });
+      
+      // Send email alert for all risk levels (including LOW)
+      if (req.user?.email) {
+        emailService.sendFloodAlert(req.user.email, riskAssessment);
       }
     } catch (error) {
       next(error);
