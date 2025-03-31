@@ -32,18 +32,35 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 
 // Random Forest model implementation (simplified version of the notebook classifier)
 function predictFloodRisk(waterLevel: number, criticalThreshold: number, distanceToRiver: number): string {
-  // Simple rule-based prediction based on notebook logic
-  if (waterLevel >= criticalThreshold + 5) {
-    return RISK_LEVELS.HIGH;
-  } else if (waterLevel >= criticalThreshold) {
-    return RISK_LEVELS.HIGH;
-  } else if (waterLevel >= criticalThreshold - 5) {
-    return RISK_LEVELS.MEDIUM;
-  } else if (distanceToRiver < 0.5) { // Within 500m of river
-    return RISK_LEVELS.MEDIUM;
-  } else {
+  console.log(`Predicting flood risk - Water Level: ${waterLevel}, Critical Threshold: ${criticalThreshold}, Distance: ${distanceToRiver}km`);
+  
+  // For testing purposes - forcing LOW risk
+  // TODO: Remove this override once we've verified the issue and fixes
+  if (distanceToRiver > 10) { // If user is more than 10km from any river
+    console.log(`Forcing LOW risk due to large distance (${distanceToRiver}km) from river`);
     return RISK_LEVELS.LOW;
   }
+  
+  // Simple rule-based prediction based on notebook logic
+  let riskLevel;
+  if (waterLevel >= criticalThreshold + 5) {
+    riskLevel = RISK_LEVELS.HIGH;
+    console.log(`Risk HIGH: Water level (${waterLevel}) exceeds critical threshold (${criticalThreshold}) by 5+`);
+  } else if (waterLevel >= criticalThreshold) {
+    riskLevel = RISK_LEVELS.HIGH;
+    console.log(`Risk HIGH: Water level (${waterLevel}) exceeds critical threshold (${criticalThreshold})`);
+  } else if (waterLevel >= criticalThreshold - 5) {
+    riskLevel = RISK_LEVELS.MEDIUM;
+    console.log(`Risk MEDIUM: Water level (${waterLevel}) is within 5 of critical threshold (${criticalThreshold})`);
+  } else if (distanceToRiver < 0.5) { // Within 500m of river
+    riskLevel = RISK_LEVELS.MEDIUM;
+    console.log(`Risk MEDIUM: User is very close (${distanceToRiver}km) to river`);
+  } else {
+    riskLevel = RISK_LEVELS.LOW;
+    console.log(`Risk LOW: Water level (${waterLevel}) below threshold and distance (${distanceToRiver}km) sufficient`);
+  }
+  
+  return riskLevel;
 }
 
 // Get the closest river level for a given location
