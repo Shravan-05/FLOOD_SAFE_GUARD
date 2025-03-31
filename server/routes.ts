@@ -49,9 +49,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Flood risk in your area is ${riskAssessment.riskLevel}. Current water level: ${riskAssessment.waterLevel}m (threshold: ${riskAssessment.thresholdLevel}m)`
       });
       
-      // Send email alert for all risk levels (including LOW)
-      if (req.user?.email) {
+      // Only send an email alert if the user is logging in for the first time (not updating location)
+      // This prevents duplicate emails when user moves around on the map
+      const recentAlerts = await storage.getAlertsByUserId(userId);
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000); // 5 minutes ago
+      
+      // Check if there are any alerts in the last 5 minutes
+      const hasRecentAlerts = recentAlerts.some(alert => {
+        const alertTime = new Date(alert.createdAt);
+        return alertTime > fiveMinutesAgo;
+      });
+      
+      // Only send email if there are no recent alerts (within last 5 min) or this is first login
+      const shouldSendEmail = !hasRecentAlerts;
+      
+      if (shouldSendEmail && req.user?.email) {
         emailService.sendFloodAlert(req.user.email, riskAssessment);
+        console.log(`Initial flood risk email sent to ${req.user.email} with risk level: ${riskAssessment.riskLevel}`);
       }
     } catch (error) {
       next(error);
@@ -199,14 +214,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criticalThreshold: closestRiver ? closestRiver.criticalThreshold : 0
       };
       
-      // Send email alert
+      // Send manual email alert
       await emailService.sendFloodAlert(user.email, riskAssessment);
+      console.log(`Manual flood risk email sent to ${user.email} with risk level: ${riskLevel}`);
       
       // Create alert record
       const alert = await storage.createAlert({
         userId,
         riskLevel,
-        message: `Flood risk alert: ${riskLevel} risk level detected at your location.`
+        message: `Manual flood risk alert: ${riskLevel} risk level detected at your location.`
       });
       
       res.status(201).json(alert);
