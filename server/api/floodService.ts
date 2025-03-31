@@ -34,10 +34,10 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 function predictFloodRisk(waterLevel: number, criticalThreshold: number, distanceToRiver: number): string {
   console.log(`Predicting flood risk - Water Level: ${waterLevel}, Critical Threshold: ${criticalThreshold}, Distance: ${distanceToRiver}km`);
   
-  // For testing purposes - forcing LOW risk
-  // TODO: Remove this override once we've verified the issue and fixes
-  if (distanceToRiver > 10) { // If user is more than 10km from any river
-    console.log(`Forcing LOW risk due to large distance (${distanceToRiver}km) from river`);
+  // Distance override: if user is more than 5km from any river, risk is always LOW
+  // This matches the client-side distance override
+  if (distanceToRiver > 5) {
+    console.log(`Server forcing LOW risk due to large distance (${distanceToRiver}km) from river`);
     return RISK_LEVELS.LOW;
   }
   

@@ -136,6 +136,13 @@ export const assessFloodRiskLevel = (
   distanceToRiver: number
 ): string => {
   const threshold = criticalThreshold || 80; // Default threshold
+  
+  // Distance override: if user is more than 5km from any river, risk is always LOW
+  // This matches the server-side distance override
+  if (distanceToRiver > 5) {
+    console.log(`Client forcing LOW risk due to large distance (${distanceToRiver}km) from river`);
+    return RISK_LEVELS.LOW;
+  }
 
   if (waterLevel >= threshold + 5) {
     return RISK_LEVELS.HIGH;

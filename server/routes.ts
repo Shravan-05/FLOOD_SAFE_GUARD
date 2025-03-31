@@ -57,8 +57,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if there are any alerts in the last 5 minutes
       const hasRecentAlerts = recentAlerts.some(alert => {
-        const alertTime = new Date(alert.createdAt);
-        return alertTime > fiveMinutesAgo;
+        // Ensure we have a valid date before comparing
+        if (alert.createdAt) {
+          const alertTime = new Date(alert.createdAt);
+          return alertTime > fiveMinutesAgo;
+        }
+        return false;
       });
       
       // Only send email if there are no recent alerts (within last 5 min) or this is first login
