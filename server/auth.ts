@@ -140,54 +140,52 @@ export function setupAuth(app: Express) {
     try {
       const user = req.user as SelectUser;
       
-      // If user has enabled alerts
-      if (user.receiveAlerts) {
-        // Get or create a default location for the user if it doesn't exist
-        let userLocations = await storage.getLocationsByUserId(user.id);
-        let userLocation;
-        
-        if (userLocations.length === 0) {
-          // Use default location (Bangalore)
-          userLocation = await storage.createLocation({
-            userId: user.id,
-            latitude: 12.9716,
-            longitude: 77.5946,
-            isHome: true
-          });
-        } else {
-          // Use first location
-          userLocation = userLocations[0];
-        }
-        
-        // Assess flood risk for this location
-        const riskAssessment = await floodService.assessFloodRisk(
-          userLocation.latitude, 
-          userLocation.longitude
-        );
-        
-        // Store the risk assessment
-        const floodRisk = await storage.createFloodRisk({
+      // Always send alerts on login
+      // Get or create a default location for the user if it doesn't exist
+      let userLocations = await storage.getLocationsByUserId(user.id);
+      let userLocation;
+      
+      if (userLocations.length === 0) {
+        // Use default location (Bangalore)
+        userLocation = await storage.createLocation({
           userId: user.id,
-          locationId: userLocation.id,
-          riskLevel: riskAssessment.riskLevel,
-          waterLevel: riskAssessment.waterLevel,
-          thresholdLevel: riskAssessment.thresholdLevel
+          latitude: 12.9716,
+          longitude: 77.5946,
+          isHome: true
         });
-        
-        // Create an alert
-        const alertMessage = `Flood risk level: ${riskAssessment.riskLevel}. 
-          Current water level: ${riskAssessment.waterLevel}cm. 
-          Critical threshold: ${riskAssessment.thresholdLevel}cm.`;
-          
-        await storage.createAlert({
-          userId: user.id,
-          riskLevel: riskAssessment.riskLevel,
-          message: alertMessage
-        });
-        
-        // Send email alert if risk is present
-        await emailService.sendFloodAlert(user.email, riskAssessment);
+      } else {
+        // Use first location
+        userLocation = userLocations[0];
       }
+      
+      // Assess flood risk for this location
+      const riskAssessment = await floodService.assessFloodRisk(
+        userLocation.latitude, 
+        userLocation.longitude
+      );
+      
+      // Store the risk assessment
+      const floodRisk = await storage.createFloodRisk({
+        userId: user.id,
+        locationId: userLocation.id,
+        riskLevel: riskAssessment.riskLevel,
+        waterLevel: riskAssessment.waterLevel,
+        thresholdLevel: riskAssessment.thresholdLevel
+      });
+      
+      // Create an alert
+      const alertMessage = `Flood risk level: ${riskAssessment.riskLevel}. 
+        Current water level: ${riskAssessment.waterLevel}cm. 
+        Critical threshold: ${riskAssessment.thresholdLevel}cm.`;
+        
+      await storage.createAlert({
+        userId: user.id,
+        riskLevel: riskAssessment.riskLevel,
+        message: alertMessage
+      });
+      
+      // Always send email alert regardless of risk level
+      await emailService.sendFloodAlert(user.email, riskAssessment);
       
       // Return user data
       res.status(200).json(req.user);

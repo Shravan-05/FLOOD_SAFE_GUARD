@@ -32,8 +32,24 @@ const createColoredIcon = (color: string) => {
   });
 };
 
-// User location marker icon (blue)
-const userIcon = createColoredIcon('#2563eb');
+// User location marker icon (blue with pulsing effect)
+const userIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: `
+    <div class="relative">
+      <div style="background-color: #2563eb; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px #2563eb;"></div>
+      <div style="position: absolute; top: -10px; left: -10px; width: 40px; height: 40px; border-radius: 50%; background-color: rgba(37, 99, 235, 0.2); animation: pulse 1.5s infinite;"></div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0% { transform: scale(0.5); opacity: 1; }
+        100% { transform: scale(1.5); opacity: 0; }
+      }
+    </style>
+  `,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
 
 // Destination marker icon (green)
 const destinationIcon = createColoredIcon('#22c55e');
@@ -93,8 +109,11 @@ export default function LeafletMap({
   const [safeRoutes, setSafeRoutes] = useState<Route[]>([]);
   const mapRef = useRef<L.Map | null>(null);
 
-  // Handle map click for destination selection
+  // Handle map click for destination selection - Only allow a single destination
   const handleMapClick = useCallback((e: L.LeafletMouseEvent) => {
+    // Clear previous destination and routes when setting a new one
+    setSafeRoutes([]);
+    
     const newDestination = {
       latitude: e.latlng.lat,
       longitude: e.latlng.lng
@@ -296,54 +315,58 @@ export default function LeafletMap({
       <div className="absolute bottom-4 right-4 z-[1000]">
         <Button 
           onClick={centerOnUserLocation}
-          className="flex items-center gap-1 bg-white text-gray-700 hover:bg-gray-100 shadow-md"
+          className="flex items-center gap-2 bg-primary text-white hover:bg-primary-dark shadow-md border border-primary-dark font-medium transition-all duration-200"
           size="sm"
         >
           <Navigation className="h-4 w-4" />
-          Center on Me
+          Return to My Location
         </Button>
       </div>
       
       {/* Map legend */}
-      <div className="absolute top-4 right-4 bg-white bg-opacity-90 rounded-md shadow-md p-3 z-[1000]">
-        <div className="text-sm font-medium mb-2">Map Legend</div>
-        <div className="space-y-2">
+      <div className="absolute top-4 right-4 bg-white bg-opacity-95 rounded-md shadow-md p-4 z-[1000] border border-gray-100">
+        <div className="text-sm font-medium mb-3 border-b pb-2">Map Legend</div>
+        <div className="space-y-3">
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-            <span className="ml-2 text-xs">High Risk Area</span>
+            <div className="w-4 h-4 bg-red-500 rounded-full shadow-sm"></div>
+            <span className="ml-2 text-xs font-medium text-gray-700">High Risk Area</span>
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
-            <span className="ml-2 text-xs">Medium Risk Area</span>
+            <div className="w-4 h-4 bg-orange-500 rounded-full shadow-sm"></div>
+            <span className="ml-2 text-xs font-medium text-gray-700">Medium Risk Area</span>
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            <span className="ml-2 text-xs">Safe Route</span>
+            <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm"></div>
+            <span className="ml-2 text-xs font-medium text-gray-700">Safe Route</span>
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
-            <span className="ml-2 text-xs">Your Location</span>
+            <div className="w-4 h-4 bg-blue-600 rounded-full shadow-sm"></div>
+            <span className="ml-2 text-xs font-medium text-gray-700">Your Location</span>
           </div>
           <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-600 rounded-full"></div>
-            <span className="ml-2 text-xs">Destination</span>
+            <div className="w-4 h-4 bg-green-600 rounded-full shadow-sm"></div>
+            <span className="ml-2 text-xs font-medium text-gray-700">Destination</span>
           </div>
         </div>
       </div>
       
       {/* Risk level indicator */}
-      <div className={`absolute top-4 left-4 px-4 py-2 rounded-md shadow-md z-[1000] ${
-        riskLevel === RISK_LEVELS.HIGH ? 'bg-red-500 text-white' :
-        riskLevel === RISK_LEVELS.MEDIUM ? 'bg-orange-500 text-white' :
-        'bg-green-500 text-white'
+      <div className={`absolute top-4 left-4 px-5 py-3 rounded-md shadow-md z-[1000] border ${
+        riskLevel === RISK_LEVELS.HIGH ? 'bg-red-500 text-white border-red-600' :
+        riskLevel === RISK_LEVELS.MEDIUM ? 'bg-orange-500 text-white border-orange-600' :
+        'bg-green-500 text-white border-green-600'
       }`}>
-        <div className="text-sm font-medium">Current Flood Risk: {riskLevel}</div>
+        <div className="text-sm font-bold uppercase">Flood Risk Level</div>
+        <div className="text-lg font-medium mt-1">{riskLevel}</div>
       </div>
       
       {/* Destination selection instruction */}
       {!destination && (
-        <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 rounded-md shadow-md p-3 z-[1000]">
-          <div className="text-sm">👆 Click on the map to select your destination</div>
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-95 rounded-md shadow-md p-4 z-[1000] border border-gray-100 flex items-center space-x-2">
+          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+          </svg>
+          <div className="text-sm font-medium">Click on the map to select your destination</div>
         </div>
       )}
     </div>

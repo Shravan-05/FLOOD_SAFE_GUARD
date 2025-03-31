@@ -28,17 +28,18 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-primary shadow-md z-10">
+    <header className="bg-gradient-to-r from-primary-dark via-primary to-primary-light shadow-md z-10 sticky top-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <div className="flex items-center">
                 <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M18 16.016v-8.032a2 2 0 00-1.5-1.937l-6-1.8a2 2 0 00-1 0l-6 1.8a2 2 0 00-1.5 1.937v8.032a2 2 0 001.5 1.937l6 1.8a2 2 0 001 0l6-1.8a2 2 0 001.5-1.937zM9 9v11M15 4v17" />
                 </svg>
                 <Link href="/dashboard">
-                  <span className="ml-2 text-xl font-bold text-white cursor-pointer">FloodGuard</span>
+                  <span className="ml-2 text-xl font-bold text-white cursor-pointer bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-200">FloodGuard</span>
                 </Link>
               </div>
             </div>
