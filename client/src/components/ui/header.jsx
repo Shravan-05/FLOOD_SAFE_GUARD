@@ -34,12 +34,31 @@ export default function Header() {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <div className="flex items-center">
-                <svg className="h-9 w-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M18 16.016v-8.032a2 2 0 00-1.5-1.937l-6-1.8a2 2 0 00-1 0l-6 1.8a2 2 0 00-1.5 1.937v8.032a2 2 0 001.5 1.937l6 1.8a2 2 0 001 0l6-1.8a2 2 0 001.5-1.937zM9 9v11M15 4v17" />
+                <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" fill="rgba(255,255,255,0.1)"/>
+                  <path 
+                    d="M6.5 12C8.5 8 9.5 7 12 7C14.5 7 15.5 8 17.5 12C15.5 16 14.5 17 12 17C9.5 17 8.5 16 6.5 12Z" 
+                    stroke="currentColor" 
+                    strokeWidth="1.5" 
+                    fill="rgba(255,255,255,0.2)"
+                  />
+                  <path 
+                    d="M12 12C12 14 12 16 12 17.5" 
+                    stroke="currentColor" 
+                    strokeWidth="1.5" 
+                    strokeLinecap="round"
+                  />
+                  <path 
+                    d="M12 7C12 8.5 12 10 12 12" 
+                    stroke="currentColor" 
+                    strokeWidth="1.5" 
+                    strokeLinecap="round"
+                  />
                 </svg>
                 <Link href="/dashboard">
-                  <span className="ml-2 text-xl font-bold cursor-pointer bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-100">FloodGuard</span>
+                  <span className="ml-2 text-xl font-bold cursor-pointer bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-100">
+                    <span className="font-normal">Flood</span>Guard
+                  </span>
                 </Link>
               </div>
             </div>
