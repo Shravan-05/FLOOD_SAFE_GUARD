@@ -315,8 +315,8 @@ export default function LeafletMap({
         Math.pow(lng - river.longitude, 2)
       );
       
-      // Increase river detection radius to 200 meters to create a larger buffer around water bodies
-      const riverRadius = 200 / 111000; // Convert 200 meters to degrees
+      // Increase river detection radius to 500 meters to create a much larger buffer around water bodies
+      const riverRadius = 500 / 111000; // Convert 500 meters to degrees
       
       if (distToRiver <= riverRadius) {
         console.log("Destination is on or near a water body - not allowed");
