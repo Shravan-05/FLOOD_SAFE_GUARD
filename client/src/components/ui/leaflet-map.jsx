@@ -175,6 +175,30 @@ export default function LeafletMap({
       latitude: e.latlng.lat,
       longitude: e.latlng.lng
     };
+    
+    // Check if the clicked point is in a high or medium risk zone
+    const isDangerZone = isPointInRiskZone(newDestination.latitude, newDestination.longitude);
+    
+    if (isDangerZone) {
+      // Don't set destination if in a risk zone - show danger routes only for visualization
+      alert("Warning: This destination is in or near a flood risk area. Please select a safer location.");
+      
+      // Visualize the unsafe path for demonstration only
+      const dangerRoute = {
+        id: 'danger-route',
+        name: 'Dangerous Route - Not Recommended',
+        path: [
+          [userLocation.latitude, userLocation.longitude],
+          [newDestination.latitude, newDestination.longitude]
+        ],
+        status: ROAD_STATUS.UNDER_FLOOD
+      };
+      
+      setSafeRoutes([dangerRoute]);
+      return;
+    }
+    
+    // Only set destination and continue if it's in a safe location
     setDestination(newDestination);
     
     if (onDestinationSelect) {
@@ -183,11 +207,18 @@ export default function LeafletMap({
     
     // Fetch safe routes when destination is selected
     fetchSafeRoutes(newDestination);
-  }, [onDestinationSelect]);
+  }, [onDestinationSelect, userLocation]);
 
   // Fetch safe routes between user location and destination
   const fetchSafeRoutes = async (dest) => {
     if (!userLocation) return;
+    
+    // First verify the destination isn't in a risk zone (this was already checked in handleMapClick,
+    // but we're adding a second verification here as a safeguard)
+    if (isPointInRiskZone(dest.latitude, dest.longitude)) {
+      console.warn("Trying to calculate route to a risk zone - this should not happen");
+      return;
+    }
     
     try {
       const res = await apiRequest(
@@ -196,43 +227,82 @@ export default function LeafletMap({
       );
       const data = await res.json();
       
-      // Filter out flooded routes if there are safe routes available
+      // Filter routes by safety level
       const safeRoutesOnly = data.filter(route => route.status === ROAD_STATUS.SAFE);
+      const cautionRoutes = data.filter(route => route.status === ROAD_STATUS.NEAR_FLOOD);
       
       if (safeRoutesOnly.length > 0) {
-        // If there are safe routes, prioritize those
+        // If there are safe routes, only show those (no flooded routes)
         setSafeRoutes([...safeRoutesOnly]);
-      } else {
-        // Otherwise, include caution routes as alternatives
-        const cautionRoutes = data.filter(route => route.status === ROAD_STATUS.NEAR_FLOOD);
-        setSafeRoutes([...cautionRoutes]);
         
-        // Add flooded routes as well, but with less priority
-        const floodedRoutes = data.filter(route => route.status === ROAD_STATUS.UNDER_FLOOD);
-        if (floodedRoutes.length > 0) {
-          setSafeRoutes(prev => [...prev, ...floodedRoutes]);
+        // Optionally show the first caution route as an alternative
+        if (cautionRoutes.length > 0) {
+          cautionRoutes[0].name = 'Alternative Route (Caution)';
+          setSafeRoutes(prevRoutes => [...prevRoutes, cautionRoutes[0]]);
         }
+      } else if (cautionRoutes.length > 0) {
+        // If no safe routes, show caution routes
+        setSafeRoutes([...cautionRoutes]);
+      } else {
+        // If no safe or caution routes, show a message
+        alert("No safe routes available to this destination. Try selecting a different destination.");
+        
+        // Create a direct route but mark it as unsafe
+        const directRoute = {
+          id: 'no-safe-route',
+          name: 'No Safe Route Available',
+          path: [
+            [userLocation.latitude, userLocation.longitude],
+            [dest.latitude, dest.longitude]
+          ],
+          status: ROAD_STATUS.UNDER_FLOOD
+        };
+        
+        setSafeRoutes([directRoute]);
       }
     } catch (error) {
       console.error('Failed to fetch safe routes:', error);
       
-      // If the destination is near a high-risk zone, mark the route as dangerous
-      const isDestinationInDanger = isPointInRiskZone(dest.latitude, dest.longitude);
-      const routeStatus = isDestinationInDanger ? ROAD_STATUS.UNDER_FLOOD : ROAD_STATUS.SAFE;
-      
       // If API fails, create a simple direct route
-      const directRoute = [
-        [userLocation.latitude, userLocation.longitude],
-        [dest.latitude, dest.longitude]
-      ];
+      // But still avoid routes through high-risk areas
+      const routePassesThroughRiskZone = checkRoutePassesThroughRiskZones(
+        userLocation.latitude, userLocation.longitude,
+        dest.latitude, dest.longitude
+      );
       
-      setSafeRoutes([{
+      const routeStatus = routePassesThroughRiskZone ? ROAD_STATUS.UNDER_FLOOD : ROAD_STATUS.SAFE;
+      const routeName = routePassesThroughRiskZone ? 'Warning: Route Passes Through Risk Areas' : 'Direct Route';
+      
+      const directRoute = {
         id: 'direct',
-        name: 'Direct Route',
-        path: directRoute,
+        name: routeName,
+        path: [
+          [userLocation.latitude, userLocation.longitude],
+          [dest.latitude, dest.longitude]
+        ],
         status: routeStatus
-      }]);
+      };
+      
+      setSafeRoutes([directRoute]);
     }
+  };
+  
+  // Check if a direct route passes through any risk zones
+  const checkRoutePassesThroughRiskZones = (startLat, startLong, endLat, endLong) => {
+    // Check several points along the route
+    const numPoints = 10; // Check 10 points along the route
+    
+    for (let i = 1; i < numPoints; i++) {
+      const fraction = i / numPoints;
+      const lat = startLat + fraction * (endLat - startLat);
+      const lng = startLong + fraction * (endLong - startLong);
+      
+      if (isPointInRiskZone(lat, lng)) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   // Check if a point is within a high or medium risk zone
