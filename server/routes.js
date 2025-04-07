@@ -64,12 +64,19 @@ export async function registerRoutes(app) {
         return false;
       });
       
-      // Only send email if there are no recent alerts (within last 5 min) or this is first login
-      const shouldSendEmail = !hasRecentAlerts;
+      // Only send email if:
+      // 1. There are no recent alerts (within last 5 min)
+      // 2. User has a valid email
+      // 3. User has not disabled email alerts (receiveAlerts is true or undefined)
+      const shouldSendEmail = !hasRecentAlerts && 
+                             req.user?.email && 
+                             (req.user?.receiveAlerts !== false);
       
-      if (shouldSendEmail && req.user?.email) {
+      if (shouldSendEmail) {
         emailService.sendFloodAlert(req.user.email, riskAssessment);
         console.log(`Initial flood risk email sent to ${req.user.email} with risk level: ${riskAssessment.riskLevel}`);
+      } else if (req.user?.receiveAlerts === false) {
+        console.log(`Email alerts disabled for user ${req.user?.username || req.user?.id} - no email sent`);
       }
     } catch (error) {
       next(error);
@@ -213,9 +220,14 @@ export async function registerRoutes(app) {
         thresholdLevel: actualRiskAssessment.thresholdLevel || 0
       };
       
-      // Send manual email alert with the actual risk level from assessment
-      await emailService.sendFloodAlert(user.email, riskAssessment);
-      console.log(`Manual flood risk email sent to ${user.email} with actual risk level: ${actualRiskAssessment.riskLevel}`);
+      // Check if email alerts are enabled for this user
+      if (user.receiveAlerts !== false) {
+        // Send manual email alert with the actual risk level from assessment
+        await emailService.sendFloodAlert(user.email, riskAssessment);
+        console.log(`Manual flood risk email sent to ${user.email} with actual risk level: ${actualRiskAssessment.riskLevel}`);
+      } else {
+        console.log(`Email alerts disabled for user ${user.username || user.id} - manual alert not sent`);
+      }
       
       // Create alert record with the actual risk level
       const alert = await storage.createAlert({

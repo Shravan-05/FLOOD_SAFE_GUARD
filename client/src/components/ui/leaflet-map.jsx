@@ -305,8 +305,26 @@ export default function LeafletMap({
     return false;
   };
 
-  // Check if a point is within a high or medium risk zone
+  // Check if a point is within a high or medium risk zone or directly on a river
   const isPointInRiskZone = (lat, lng) => {
+    // First check if we're directly over a river marker (water body)
+    for (const river of rivers) {
+      // Calculate distance to river in degrees (approximate)
+      const distToRiver = Math.sqrt(
+        Math.pow(lat - river.latitude, 2) + 
+        Math.pow(lng - river.longitude, 2)
+      );
+      
+      // Use a smaller radius for direct river detection (50 meters)
+      const riverRadius = 50 / 111000; // Convert 50 meters to degrees
+      
+      if (distToRiver <= riverRadius) {
+        console.log("Destination is directly on a water body - not allowed");
+        return true; // Directly on a river - not allowed
+      }
+    }
+    
+    // Then check risk zones around rivers
     for (const zone of riskZones) {
       // Convert zone radius from meters to approximate latitude/longitude degrees
       // This is a simplified calculation and not accurate for all locations
@@ -319,6 +337,7 @@ export default function LeafletMap({
       
       if (distance <= radiusInDegrees && 
           (zone.riskLevel === RISK_LEVELS.HIGH || zone.riskLevel === RISK_LEVELS.MEDIUM)) {
+        console.log(`Destination is in a ${zone.riskLevel} risk zone - not allowed`);
         return true;
       }
     }
