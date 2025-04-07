@@ -14,7 +14,7 @@ const ROAD_STATUS = {
 };
 
 // Haversine formula to calculate distance between two points
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371.0; // Earth radius in km
   const lat1Rad = lat1 * Math.PI / 180;
   const lon1Rad = lon1 * Math.PI / 180;
@@ -31,23 +31,22 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
 }
 
 // Check if a point (x,y) is inside a circle with center (cx,cy) and radius r
-function isInsideCircle(x: number, y: number, cx: number, cy: number, r: number): boolean {
+function isInsideCircle(x, y, cx, cy, r) {
   const distance = haversine(x, y, cx, cy);
   return distance <= r;
 }
 
-// Random Forest model implementation (simplified version of the notebook classifier)
-function predictFloodRisk(waterLevel: number, criticalThreshold: number, distanceToRiver: number): string {
+// Predict flood risk based on water level, critical threshold, and distance to river
+function predictFloodRisk(waterLevel, criticalThreshold, distanceToRiver) {
   console.log(`Predicting flood risk - Water Level: ${waterLevel}, Critical Threshold: ${criticalThreshold}, Distance: ${distanceToRiver}km`);
   
   // Distance override: if user is more than 5km from any river, risk is always LOW
-  // This matches the client-side distance override
   if (distanceToRiver > 5) {
     console.log(`Server forcing LOW risk due to large distance (${distanceToRiver}km) from river`);
     return RISK_LEVELS.LOW;
   }
   
-  // Simple rule-based prediction based on notebook logic
+  // Simple rule-based prediction
   let riskLevel;
   if (waterLevel >= criticalThreshold + 5) {
     riskLevel = RISK_LEVELS.HIGH;
@@ -70,7 +69,7 @@ function predictFloodRisk(waterLevel: number, criticalThreshold: number, distanc
 }
 
 // Get the closest river level for a given location
-async function getClosestRiverLevel(latitude: number, longitude: number) {
+async function getClosestRiverLevel(latitude, longitude) {
   const radius = 10; // 10 km radius
   const riverLevels = await storage.getRiverLevelsByArea(latitude, longitude, radius);
   
@@ -116,25 +115,55 @@ async function getClosestRiverLevel(latitude: number, longitude: number) {
   };
 }
 
-type RiskZone = {
-  center: {
-    lat: number;
-    long: number;
-  };
-  radius: number;
-  level: string;
-};
+// Generate multiple risk levels for different areas around a location
+function generateRiskLevels(latitude, longitude, riverLevel) {
+  const riskZones = [];
+  
+  // Create a high risk zone near the river
+  if (riverLevel && riverLevel.level >= riverLevel.criticalThreshold) {
+    riskZones.push({
+      center: {
+        latitude: riverLevel.latitude,
+        longitude: riverLevel.longitude
+      },
+      radius: 0.8, // 800m radius
+      level: RISK_LEVELS.HIGH
+    });
+  }
+  
+  // Create a medium risk zone
+  riskZones.push({
+    center: {
+      latitude: latitude + (Math.random() - 0.5) * 0.01,
+      longitude: longitude + (Math.random() - 0.5) * 0.01
+    },
+    radius: 0.5, // 500m radius
+    level: RISK_LEVELS.MEDIUM
+  });
+  
+  // Create a low risk zone
+  riskZones.push({
+    center: {
+      latitude: latitude + (Math.random() - 0.5) * 0.01,
+      longitude: longitude + (Math.random() - 0.5) * 0.01
+    },
+    radius: 0.3, // 300m radius
+    level: RISK_LEVELS.LOW
+  });
+  
+  return riskZones;
+}
 
 class FloodService {
   // Assess flood risk for a given location
-  async assessFloodRisk(latitude: number, longitude: number) {
+  async assessFloodRisk(latitude, longitude) {
     console.log(`Assessing flood risk for location: ${latitude}, ${longitude}`);
     
     // Get the closest river
     const closestRiverData = await getClosestRiverLevel(latitude, longitude);
     
     if (!closestRiverData) {
-      console.log(`No river data found - defaulting to LOW risk`);
+      console.log("No river data found - defaulting to LOW risk");
       return {
         riskLevel: RISK_LEVELS.LOW,
         waterLevel: 0,
@@ -165,8 +194,8 @@ class FloodService {
     };
   }
   
-  // Assess road status - implementing the road status classifier from the notebook
-  async assessRoadStatus(startLat: number, startLong: number, endLat: number, endLong: number) {
+  // Assess road status based on proximity to flooded areas
+  async assessRoadStatus(startLat, startLong, endLat, endLong) {
     // Get river levels near road start and end points
     const radius = 5; // 5 km radius
     const riverLevelsStart = await storage.getRiverLevelsByArea(startLat, startLong, radius);
@@ -221,7 +250,7 @@ class FloodService {
   }
   
   // Get safe routes between two points
-  async getSafeRoutes(startLat: number, startLong: number, endLat: number, endLong: number) {
+  async getSafeRoutes(startLat, startLong, endLat, endLong) {
     // Get all roads in the area
     const centerLat = (startLat + endLat) / 2;
     const centerLong = (startLong + endLong) / 2;
@@ -310,7 +339,7 @@ class FloodService {
           path: [
             [startLat, startLong],
             [closestStartRoad.startLat, closestStartRoad.startLong]
-          ] as [number, number][]
+          ]
         });
       }
       
@@ -322,7 +351,7 @@ class FloodService {
           path: [
             [closestEndRoad.endLat, closestEndRoad.endLong],
             [endLat, endLong]
-          ] as [number, number][]
+          ]
         });
       }
     }
@@ -331,8 +360,8 @@ class FloodService {
     return routes;
   }
   
-  // Generate test routes between start and end points for demo purposes when no real data available
-  generateTestRoutes(startLat: number, startLong: number, endLat: number, endLong: number): any[] {
+  // Generate test routes between start and end points
+  generateTestRoutes(startLat, startLong, endLat, endLong) {
     // Get distance between points
     const directDistance = haversine(startLat, startLong, endLat, endLong);
     
@@ -352,7 +381,7 @@ class FloodService {
     };
     
     // Generate risk areas for testing
-    const riskAreas: RiskZone[] = [
+    const riskAreas = [
       {
         center: {
           lat: startLat + (endLat - startLat) * 0.3,
@@ -372,7 +401,7 @@ class FloodService {
     ];
     
     // Check if a point is in a risk area
-    const isInRiskArea = (lat: number, long: number) => {
+    const isInRiskArea = (lat, long) => {
       for (const area of riskAreas) {
         if (isInsideCircle(lat, long, area.center.lat, area.center.long, area.radius)) {
           return area.level;
@@ -382,7 +411,7 @@ class FloodService {
     };
     
     // Create route statuses based on risk areas
-    const getRouteStatus = (path: [number, number][]) => {
+    const getRouteStatus = (path) => {
       for (const [lat, long] of path) {
         const risk = isInRiskArea(lat, long);
         if (risk === RISK_LEVELS.HIGH) {
@@ -395,7 +424,7 @@ class FloodService {
     };
     
     // Create multiple routes with different paths
-    const routes: any[] = [];
+    const routes = [];
     
     // Direct route
     const directRoute = {
@@ -404,8 +433,8 @@ class FloodService {
       path: [
         [startLat, startLong],
         [endLat, endLong]
-      ] as [number, number][],
-      status: "" // Will be set based on risk areas
+      ],
+      status: null  // Will be set based on risk areas
     };
     directRoute.status = getRouteStatus(directRoute.path);
     routes.push(directRoute);
@@ -419,8 +448,8 @@ class FloodService {
         [startLat, startLong],
         [midNorth.lat, midNorth.long],
         [endLat, endLong]
-      ] as [number, number][],
-      status: ""
+      ],
+      status: null
     };
     northRoute.status = getRouteStatus(northRoute.path);
     routes.push(northRoute);
@@ -439,8 +468,8 @@ class FloodService {
         [midSouth1.lat, midSouth1.long],
         [midSouth2.lat, midSouth2.long],
         [endLat, endLong]
-      ] as [number, number][],
-      status: ""
+      ],
+      status: null
     };
     southRoute.status = getRouteStatus(southRoute.path);
     routes.push(southRoute);
@@ -466,7 +495,7 @@ class FloodService {
           [detourMid1.lat, detourMid1.long],
           [detourMid2.lat, detourMid2.long],
           [endLat, endLong]
-        ] as [number, number][],
+        ],
         status: ROAD_STATUS.SAFE
       };
       routes.push(detourRoute);
@@ -475,20 +504,31 @@ class FloodService {
     return routes;
   }
   
-  // Get river name by location (simplified - would be more data-driven in production)
-  getRiverNameByLocation(latitude: number, longitude: number) {
-    // Major UK rivers - more would be added from real geographical data
-    const riverNames = [
-      'Thames', 'Severn', 'Trent', 'Great Ouse', 'Wye',
-      'Tay', 'Spey', 'Clyde', 'Tweed', 'Dee',
-      'Shannon', 'Corrib', 'Lee', 'Blackwater', 'Barrow',
-      'Mississippi', 'Amazon', 'Yangtze', 'Nile', 'Danube'
-    ];
+  // Helper methods
+  getRiverNameByLocation(latitude, longitude) {
+    // Simplified - would use a database of river names in a real app
+    const riverCoordinates = {
+      "17.385044_78.486671": "Musi River", // Hyderabad
+      "18.520407_73.856255": "Mula River", // Pune
+      "19.076090_72.877426": "Mithi River", // Mumbai
+      "12.971599_77.594566": "Vrishabhavathi River" // Bangalore
+    };
     
-    // Generate a pseudo-random but consistent name based on coordinates
-    const hash = (latitude * 1000 + longitude * 1000) % riverNames.length;
-    const index = Math.abs(Math.floor(hash));
-    return riverNames[index];
+    // Find the closest known river
+    let minDistance = Infinity;
+    let closestRiver = "River";
+    
+    for (const [coords, name] of Object.entries(riverCoordinates)) {
+      const [riverLat, riverLong] = coords.split('_').map(Number);
+      const distance = haversine(latitude, longitude, riverLat, riverLong);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestRiver = name;
+      }
+    }
+    
+    return closestRiver;
   }
 }
 

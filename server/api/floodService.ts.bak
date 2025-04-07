@@ -475,20 +475,31 @@ class FloodService {
     return routes;
   }
   
-  // Get river name by location (simplified - would be more data-driven in production)
+  // Helper methods
   getRiverNameByLocation(latitude: number, longitude: number) {
-    // Major UK rivers - more would be added from real geographical data
-    const riverNames = [
-      'Thames', 'Severn', 'Trent', 'Great Ouse', 'Wye',
-      'Tay', 'Spey', 'Clyde', 'Tweed', 'Dee',
-      'Shannon', 'Corrib', 'Lee', 'Blackwater', 'Barrow',
-      'Mississippi', 'Amazon', 'Yangtze', 'Nile', 'Danube'
-    ];
+    // Simplified - would use a database of river names in a real app
+    const riverCoordinates: Record<string, string> = {
+      "17.385044_78.486671": "Musi River", // Hyderabad
+      "18.520407_73.856255": "Mula River", // Pune
+      "19.076090_72.877426": "Mithi River", // Mumbai
+      "12.971599_77.594566": "Vrishabhavathi River" // Bangalore
+    };
     
-    // Generate a pseudo-random but consistent name based on coordinates
-    const hash = (latitude * 1000 + longitude * 1000) % riverNames.length;
-    const index = Math.abs(Math.floor(hash));
-    return riverNames[index];
+    // Find the closest known river
+    let minDistance = Infinity;
+    let closestRiver = "River";
+    
+    for (const [coords, name] of Object.entries(riverCoordinates)) {
+      const [riverLat, riverLong] = coords.split('_').map(Number);
+      const distance = haversine(latitude, longitude, riverLat, riverLong);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestRiver = name;
+      }
+    }
+    
+    return closestRiver;
   }
 }
 
