@@ -1,4 +1,4 @@
-import { sqliteTable as table, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable as table, text, integer, real, integer as serial } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
