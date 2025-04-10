@@ -15,7 +15,7 @@ import connectPg from "connect-pg-simple";
 import * as schema from "@shared/schema";
 
 const MemoryStore = createMemoryStore(session);
-const PostgresSessionStore = connectPg(session);
+import { MemoryStore } from 'express-session';
 
 export interface IStorage {
   // User operations
@@ -655,4 +655,4 @@ export class PostgresStorage implements IStorage {
 }
 
 // Use PostgresStorage instead of MemStorage
-export const storage = new PostgresStorage();
+export const storage = new MemStorage();

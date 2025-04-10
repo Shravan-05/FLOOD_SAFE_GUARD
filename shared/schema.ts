@@ -1,9 +1,9 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real } from "drizzle-orm/pg-core";
+import { sqliteTable as table, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // User Model
-export const users = pgTable("users", {
+export const users = table("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -20,7 +20,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 // Location Model
-export const locations = pgTable("locations", {
+export const locations = table("locations", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   latitude: real("latitude").notNull(),
@@ -35,7 +35,7 @@ export const insertLocationSchema = createInsertSchema(locations).omit({
 });
 
 // Flood Risk Assessment Model
-export const floodRisks = pgTable("flood_risks", {
+export const floodRisks = table("flood_risks", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   locationId: integer("location_id").references(() => locations.id).notNull(),
@@ -51,7 +51,7 @@ export const insertFloodRiskSchema = createInsertSchema(floodRisks).omit({
 });
 
 // Alert Model
-export const alerts = pgTable("alerts", {
+export const alerts = table("alerts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   riskLevel: text("risk_level").notNull(),
@@ -67,7 +67,7 @@ export const insertAlertSchema = createInsertSchema(alerts).omit({
 });
 
 // Road Status Model
-export const roads = pgTable("roads", {
+export const roads = table("roads", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   startLat: real("start_lat").notNull(),
@@ -85,7 +85,7 @@ export const insertRoadSchema = createInsertSchema(roads).omit({
 });
 
 // River Level Model
-export const riverLevels = pgTable("river_levels", {
+export const riverLevels = table("river_levels", {
   id: serial("id").primaryKey(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
