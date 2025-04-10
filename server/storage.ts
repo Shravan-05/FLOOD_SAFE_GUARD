@@ -15,7 +15,6 @@ import connectPg from "connect-pg-simple";
 import * as schema from "@shared/schema";
 
 const MemoryStore = createMemoryStore(session);
-import { MemoryStore } from 'express-session';
 
 export interface IStorage {
   // User operations
