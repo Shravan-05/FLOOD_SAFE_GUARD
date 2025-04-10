@@ -2,6 +2,9 @@ import { sqliteTable as table, text, integer, real, integer as serial } from "dr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define timestamp type since it's missing
+const timestamp = text;
+
 // User Model
 export const users = table("users", {
   id: serial("id").primaryKey(),
@@ -10,8 +13,8 @@ export const users = table("users", {
   email: text("email").notNull().unique(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  receiveAlerts: boolean("receive_alerts").default(true),
-  createdAt: timestamp("created_at").defaultNow()
+  receiveAlerts: integer("receive_alerts").notNull().default(1),
+  createdAt: timestamp("created_at")
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -25,8 +28,8 @@ export const locations = table("locations", {
   userId: integer("user_id").references(() => users.id).notNull(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
-  lastUpdated: timestamp("last_updated").defaultNow(),
-  isHome: boolean("is_home").default(false)
+  lastUpdated: timestamp("last_updated"),
+  isHome: integer("is_home").notNull().default(0)
 });
 
 export const insertLocationSchema = createInsertSchema(locations).omit({
@@ -39,10 +42,10 @@ export const floodRisks = table("flood_risks", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   locationId: integer("location_id").references(() => locations.id).notNull(),
-  riskLevel: text("risk_level").notNull(), // 'HIGH', 'MEDIUM', 'LOW'
+  riskLevel: text("risk_level").notNull(),
   waterLevel: real("water_level"),
   thresholdLevel: real("threshold_level"),
-  timestamp: timestamp("timestamp").defaultNow()
+  timestamp: timestamp("timestamp")
 });
 
 export const insertFloodRiskSchema = createInsertSchema(floodRisks).omit({
@@ -56,8 +59,8 @@ export const alerts = table("alerts", {
   userId: integer("user_id").references(() => users.id).notNull(),
   riskLevel: text("risk_level").notNull(),
   message: text("message").notNull(),
-  isRead: boolean("is_read").default(false),
-  createdAt: timestamp("created_at").defaultNow()
+  isRead: integer("is_read").notNull().default(0),
+  createdAt: timestamp("created_at")
 });
 
 export const insertAlertSchema = createInsertSchema(alerts).omit({
@@ -74,9 +77,9 @@ export const roads = table("roads", {
   startLong: real("start_long").notNull(),
   endLat: real("end_lat").notNull(),
   endLong: real("end_long").notNull(),
-  status: text("status").notNull(), // 'UNDER_FLOOD', 'NEAR_FLOOD', 'SAFE'
-  distance: real("distance"), // in km
-  lastUpdated: timestamp("last_updated").defaultNow()
+  status: text("status").notNull(),
+  distance: real("distance"),
+  lastUpdated: timestamp("last_updated")
 });
 
 export const insertRoadSchema = createInsertSchema(roads).omit({
@@ -89,9 +92,9 @@ export const riverLevels = table("river_levels", {
   id: serial("id").primaryKey(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
-  level: real("level").notNull(), // in meters
+  level: real("level").notNull(),
   criticalThreshold: real("critical_threshold"),
-  timestamp: timestamp("timestamp").defaultNow()
+  timestamp: timestamp("timestamp")
 });
 
 export const insertRiverLevelSchema = createInsertSchema(riverLevels).omit({
