@@ -23,7 +23,7 @@ export default function RiskStatusBanner({
       Icon = AlertTriangle;
       break;
     default:
-      bgColor = 'bg-green-500';
+      bgColor = 'bg-red-500';
       Icon = Info;
   }
 
@@ -34,7 +34,7 @@ export default function RiskStatusBanner({
           <Icon className="h-6 w-6" />
         </div>
         <div className="ml-3">
-          <h3 className="text-lg font-medium">Flood Risk: {riskLevel} {riskLevel === 'HIGH' ? '🚨' : riskLevel === 'MEDIUM' ? '⚠️' : '✅'}</h3>
+          <h3 className="text-lg font-medium">Flood Risk: {riskLevel} {riskLevel === 'HIGH' ? '🚨' : riskLevel === 'MEDIUM' ? '⚠️' : '🚨'}</h3>
           <div className="mt-2 text-sm">
             Current river level: {waterLevel} meters {thresholdLevel ? `(critical threshold: ${thresholdLevel} meters)` : ''}
           </div>

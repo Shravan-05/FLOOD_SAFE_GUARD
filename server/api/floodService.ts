@@ -1,5 +1,6 @@
 import { storage } from "../storage";
-
+import dotenv from 'dotenv';
+dotenv.config();
 // Constants for risk assessment
 const RISK_LEVELS = {
   HIGH: 'HIGH',

@@ -2,6 +2,7 @@ import { sqliteTable as table, text, integer, real, integer as serial } from "dr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+
 // Define timestamp type since it's missing
 const timestamp = text;
 
@@ -14,7 +15,7 @@ export const users = table("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   receiveAlerts: integer("receive_alerts").notNull().default(1),
-  createdAt: timestamp("created_at")
+  createdAt: timestamp("created_at"),  // Flag to track if email has been sent
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
